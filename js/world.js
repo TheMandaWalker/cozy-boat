@@ -126,12 +126,22 @@ export function createWorld(scene, { glowMat, water }) {
   // ----- Floating sky island with a waterfall -----
   const sky = new THREE.Group();
   sky.position.set(136, 52, -102);
+  // Rounded, lumpy underside instead of a sharp cone, so it reads as land and not a shard.
+  const rockGeo = new THREE.IcosahedronGeometry(16, 2);
+  const rockPos = rockGeo.attributes.position;
+  for (let i = 0; i < rockPos.count; i++) {
+    const x = rockPos.getX(i);
+    const y = rockPos.getY(i);
+    const z = rockPos.getZ(i);
+    const bump = 1 + 0.12 * Math.sin(x * 0.5) * Math.cos(z * 0.4 + y * 0.2);
+    rockPos.setXYZ(i, x * bump, y * bump * (y < 0 ? 0.75 : 0.2), z * bump);
+  }
+  rockGeo.computeVertexNormals();
   const rock = new THREE.Mesh(
-    new THREE.ConeGeometry(16, 26, 9),
+    rockGeo,
     new THREE.MeshStandardMaterial({ color: '#b7a4c4', flatShading: true, roughness: 0.95, emissive: '#2a2040', emissiveIntensity: 0.6 }),
   );
-  rock.rotation.x = Math.PI;
-  rock.position.y = -13;
+  rock.position.y = -8;
   sky.add(rock);
   const top = new THREE.Mesh(
     new THREE.CylinderGeometry(16, 15, 3, 14),

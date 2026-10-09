@@ -272,6 +272,12 @@ void main() {
   vec3 body = mix(uDeep, uSubsurface, clamp(peak * 0.55 + sss * 0.9, 0.0, 1.0));
   body *= 0.85 + 0.15 * fade;
 
+  // Light caustics dancing through the shallow body colour, only where the sun is up.
+  float c1 = abs(sin(w.x * 1.7 + sin(w.y * 1.3 + uTime * 0.4) * 2.0 + uTime * 0.5));
+  float c2 = abs(sin(w.y * 1.9 + sin(w.x * 1.1 - uTime * 0.35) * 2.0));
+  float caustic = pow(1.0 - min(c1, c2), 6.0) * uSunVis * (1.0 - 0.5 * peak);
+  body += uSubsurface * caustic * 0.22 * (1.0 - F);
+
   vec3 col = mix(body, skyColor(R), clamp(F * 0.9 + 0.03, 0.0, 1.0));
 
   // Sun glitter from the reflection lobe, plus sparkles from the micro normals.
@@ -279,9 +285,15 @@ void main() {
   col += uSunColor * (pow(ld, 260.0) * 3.2 + pow(ld, 26.0) * 0.12) * uSunVis;
   float sp = h21(floor(w * 48.0));
   col += uSunColor * step(0.996, sp) * pow(ld, 5.0) * 1.2 * uSunVis * fade;
+  // Sun path: a broken, shimmering streak of light on the water towards the sun.
+  float path = pow(ld, 90.0) * (0.45 + 0.55 * vnoise(w * 6.0 + vec2(uTime * 1.5, 0.0))) * uSunVis;
+  col += uSunColor * path * 1.1 * fade;
 
-  // Crest foam: folded crests (low Jacobian) broken up by noise and blown by the wind.
-  float breakup = fbm(w * 0.45 + vec2(uTime * 0.12, uTime * 0.05));
+  // Crest foam: folded crests (low Jacobian) broken up by noise and streaked along the wind.
+  vec2 windDir = vec2(0.91, 0.41);
+  vec2 wp = vec2(dot(w, vec2(-windDir.y, windDir.x)), dot(w, windDir));
+  float streak = fbm(vec2(wp.x * 0.9, wp.y * 0.22) + vec2(0.0, -uTime * 0.25));
+  float breakup = mix(streak, fbm(w * 0.45 + vec2(uTime * 0.12, uTime * 0.05)), 0.35);
   float crestFoam = smoothstep(0.55, 0.2, vJacobian) * smoothstep(0.35, 0.65, breakup);
   crestFoam *= clamp(uSea * uFoamGain, 0.0, 1.0);
 
@@ -290,7 +302,7 @@ void main() {
   float cs = cos(-uBoatYaw);
   float sn = sin(-uBoatYaw);
   vec2 local = vec2(cs * rel.x - sn * rel.y, sn * rel.x + cs * rel.y);
-  float hx = clamp(local.x, -2.5, 2.5);
+  float hx = clamp(local.x, -2.9, 2.9);
   float hull = length(local - vec2(hx, 0.0)) - 1.05;
   float contactNoise = fbm(w * 3.0 + vec2(uTime * 0.5, -uTime * 0.3));
   // A thin churned ring hugging the hull, broken up by noise, instead of a solid patch.
