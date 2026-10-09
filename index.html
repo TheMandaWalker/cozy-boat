@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Cozy Boat — une croisière au crépuscule</title>
+  <meta name="description" content="Un petit bateau sur une mer en shaders : ondulations, lanternes, lucioles, aurore et île volante. Interactif et paisible." />
+  <meta name="theme-color" content="#1b2a4a" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%278%27 fill=%27%231b2a4a%27/%3E%3Cpath d=%27M6 19h20l-3 5H9z%27 fill=%27%23c96f4f%27/%3E%3Cpath d=%27M16 6v13%27 stroke=%27%23fff6e8%27 stroke-width=%272%27/%3E%3Cpath d=%27M16 7l7 11h-7z%27 fill=%27%23ffc27a%27/%3E%3C/svg%3E" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;1,9..144,400&family=Nunito:wght@400;600;700&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="css/style.css" />
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <canvas id="scene" role="img" aria-label="Un petit bateau en bois sur une mer au crépuscule, avec son chat à la proue"></canvas>
+  <p id="fallback" role="status"></p>
+
+  <div id="intro" aria-hidden="true"></div>
+
+  <header class="title">
+    <h1>Cozy Boat</h1>
+    <p>Une petite croisière au crépuscule</p>
+  </header>
+
+  <section class="panel" aria-label="Réglages de la scène">
+    <div class="row">
+      <label for="hour">Heure du jour</label>
+      <output id="hour-label" for="hour">19:24</output>
+    </div>
+    <input id="hour" type="range" min="0" max="24" step="0.05" value="19.4" />
+
+    <div class="buttons">
+      <button id="btn-rain" type="button" aria-pressed="false">Pluie</button>
+      <button id="btn-lanterns" type="button" aria-pressed="true">Lanternes</button>
+      <button id="btn-sound" type="button" aria-pressed="false">Son</button>
+      <button id="btn-auto" type="button" aria-pressed="true">Rotation</button>
+      <button id="btn-reset" type="button">Recentrer</button>
+    </div>
+  </section>
+
+  <p class="hint">
+    Glisse pour tourner, molette pour zoomer. Clique sur l'eau, une lanterne ou le chat.
+    <span class="keys">P pluie · L lanternes · S son · R recentrer</span>
+  </p>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
