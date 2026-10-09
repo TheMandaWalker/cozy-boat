@@ -1,11 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-
 import { createWater } from './water.js';
+import { createPipeline } from './cinema.js';
 import { createEnvironment } from './environment.js';
 import { createBoat } from './boat.js';
 import { createWorld } from './world.js';
@@ -41,14 +37,13 @@ const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerH
 const DEFAULT_VIEW = { pos: new THREE.Vector3(-11.5, 3.7, 14), target: new THREE.Vector3(0.3, 2.2, 0) };
 const INTRO_FROM = new THREE.Vector3(-46, 22, 62);
 
-// ----- Post-processing: soft bloom for the lanterns and windows -----
-const composer = new EffectComposer(renderer);
-composer.setPixelRatio(pixelRatio);
-composer.setSize(window.innerWidth, window.innerHeight);
-composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.42, 0.6, 0.92);
-composer.addPass(bloom);
-composer.addPass(new OutputPass());
+// ----- Cinematic pipeline: depth of field, bloom, sun rays, grade -----
+const pipeline = createPipeline(renderer, scene, camera, {
+  width: window.innerWidth,
+  height: window.innerHeight,
+  pixelRatio,
+});
+const focusPoint = new THREE.Vector3(0, 1.5, 0);
 
 // ----- Shared glowing material (bright enough to bloom) -----
 const glowMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.0, 0.8, 0.45).multiplyScalar(2.4) });
@@ -101,8 +96,12 @@ const state = {
   rain: false,
   lanterns: true,
   sound: false,
+  sea: 0.8,
+  cinematic: false,
   time: 0,
 };
+
+const SUBSURFACE_DAY = new THREE.Color('#3fc7b5');
 
 // ----- Interaction helpers -----
 const raycaster = new THREE.Raycaster();
@@ -217,6 +216,9 @@ const btnLanterns = $('btn-lanterns');
 const btnSound = $('btn-sound');
 const btnReset = $('btn-reset');
 const btnAuto = $('btn-auto');
+const btnCinema = $('btn-cinema');
+const seaInput = $('sea');
+const seaLabel = $('sea-label');
 
 function formatHour(h) {
   const hh = Math.floor(h) % 24;
@@ -265,6 +267,24 @@ setToggle(btnAuto, controls.autoRotate);
 
 btnReset.addEventListener('click', resetView);
 
+// Sea state: calm to rough. Scales the swell and the foam with it.
+function setSea(v) {
+  state.sea = v;
+  seaInput.value = String(v);
+  seaLabel.textContent = v < 0.5 ? 'calme' : v < 0.8 ? 'houleuse' : 'agitée';
+  water.setSeaState(v);
+}
+seaInput.addEventListener('input', () => setSea(parseFloat(seaInput.value)));
+setSea(state.sea);
+
+btnCinema.addEventListener('click', () => {
+  state.cinematic = !state.cinematic;
+  document.body.classList.toggle('cinematic', state.cinematic);
+  setToggle(btnCinema, state.cinematic);
+  controls.autoRotateSpeed = state.cinematic ? 0.14 : 0.3;
+});
+setToggle(btnCinema, state.cinematic);
+
 window.addEventListener('keydown', (e) => {
   if (e.target instanceof HTMLInputElement && e.target.type !== 'range') return;
   switch (e.key.toLowerCase()) {
@@ -272,6 +292,7 @@ window.addEventListener('keydown', (e) => {
     case 'l': btnLanterns.click(); break;
     case 's': btnSound.click(); break;
     case 'r': btnReset.click(); break;
+    case 'c': btnCinema.click(); break;
     default: break;
   }
 });
@@ -285,7 +306,7 @@ function onResize() {
   const w = window.innerWidth;
   const h = window.innerHeight;
   renderer.setSize(w, h, false);
-  composer.setSize(w, h);
+  pipeline.setSize(w, h, pixelRatio);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
 }
@@ -310,13 +331,18 @@ function renderFrame() {
   u.uSunColor.value.copy(palette.sun);
   u.uSunVis.value = palette.sunVis;
   u.uDeep.value.copy(palette.deep);
+  // Subsurface tint: turquoise light through crests by day, almost gone at night.
+  u.uSubsurface.value.copy(palette.deep).lerp(SUBSURFACE_DAY, (1 - palette.night) * 0.7);
   u.uSkyTop.value.copy(palette.top);
   u.uSkyHorizon.value.copy(palette.horizon);
   u.uFogColor.value.copy(palette.horizon);
   u.uNight.value = palette.night;
+  u.uFoamGain.value = 1.0 + palette.night * 0.2;
 
   water.syncUniforms(t);
   u.uCamPos.value.copy(camera.position);
+  u.uBoatXZ.value.set(boat.group.position.x, boat.group.position.z);
+  u.uBoatYaw.value = boat.group.rotation.y;
 
   boat.update(t, dt, water, palette);
   world.update(t, dt, palette, water, pixelRatio);
@@ -366,7 +392,15 @@ function renderFrame() {
     introHidden = true;
   }
 
-  composer.render();
+  pipeline.updateGrade({
+    time: t,
+    lightDir: palette.lightDir,
+    sunVis: palette.sunVis,
+    night: palette.night,
+    focusDistance: camera.position.distanceTo(focusPoint),
+    cinematic: state.cinematic,
+  });
+  pipeline.render();
 }
 
 renderer.setAnimationLoop(renderFrame);

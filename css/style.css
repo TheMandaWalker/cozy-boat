@@ -165,6 +165,45 @@ input:focus-visible {
   animation: rise 2.8s ease both;
 }
 
+/* Keep the interface above the letterbox bars. */
+.title,
+.panel,
+.hint {
+  z-index: 3;
+}
+
+/* Cinematic letterbox: two black bars that slide in and out. */
+.letterbox {
+  position: fixed;
+  left: 0;
+  right: 0;
+  height: 0;
+  background: #05070f;
+  pointer-events: none;
+  transition: height 1.2s cubic-bezier(0.2, 0.7, 0.2, 1);
+  z-index: 2;
+}
+
+.letterbox.top {
+  top: 0;
+}
+
+.letterbox.bottom {
+  bottom: 0;
+}
+
+body.cinematic .letterbox {
+  height: 11vh;
+}
+
+body.cinematic .hint {
+  opacity: 0;
+}
+
+.hint {
+  transition: opacity 0.6s ease;
+}
+
 .keys {
   display: block;
   margin-top: 4px;

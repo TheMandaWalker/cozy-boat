@@ -36,6 +36,9 @@
     <p>Une petite croisière au crépuscule</p>
   </header>
 
+  <div class="letterbox top" aria-hidden="true"></div>
+  <div class="letterbox bottom" aria-hidden="true"></div>
+
   <section class="panel" aria-label="Réglages de la scène">
     <div class="row">
       <label for="hour">Heure du jour</label>
@@ -43,18 +46,25 @@
     </div>
     <input id="hour" type="range" min="0" max="24" step="0.05" value="19.4" />
 
+    <div class="row">
+      <label for="sea">Houle</label>
+      <output id="sea-label" for="sea">houleuse</output>
+    </div>
+    <input id="sea" type="range" min="0.3" max="1.1" step="0.01" value="0.8" />
+
     <div class="buttons">
       <button id="btn-rain" type="button" aria-pressed="false">Pluie</button>
       <button id="btn-lanterns" type="button" aria-pressed="true">Lanternes</button>
       <button id="btn-sound" type="button" aria-pressed="false">Son</button>
       <button id="btn-auto" type="button" aria-pressed="true">Rotation</button>
       <button id="btn-reset" type="button">Recentrer</button>
+      <button id="btn-cinema" type="button" aria-pressed="false">Cinéma</button>
     </div>
   </section>
 
   <p class="hint">
     Glisse pour tourner, molette pour zoomer. Clique sur l'eau, une lanterne ou le chat.
-    <span class="keys">P pluie · L lanternes · S son · R recentrer</span>
+    <span class="keys">P pluie · L lanternes · S son · R recentrer · C cinéma</span>
   </p>
 
   <script type="module" src="js/main.js"></script>

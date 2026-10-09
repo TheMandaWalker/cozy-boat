@@ -12,17 +12,19 @@ Une petite croisière au crépuscule : un bateau en bois sur une mer animée, en
 - **Pluie** : gouttes, ronds dans l'eau et ciel plus gris.
 - **Lanternes** : allume ou éteint la lanterne du mât et les lanternes flottantes.
 - **Son** : ambiance de vagues et de vent, carillons et miaulement, le tout synthétisé avec WebAudio.
+- **Houle** : curseur de l'état de la mer, du calme à l'agitée.
+- **Cinéma** : bandes de letterbox, profondeur de champ, rayons de soleil et étalonnage plus marqués.
 - **Rotation automatique** et bouton **Recentrer**.
 
-Raccourcis : `P` pluie, `L` lanternes, `S` son, `R` recentrer.
+Raccourcis : `P` pluie, `L` lanternes, `S` son, `R` recentrer, `C` cinéma.
 
 ## Ce qu'il y a dans la scène
 
-- Mer : vagues de Gerstner-like sommées dans le vertex shader, ondulations interactives, reflets de Fresnel, scintillement et mousse dans le fragment shader.
+- Mer : 36 ondes de Gerstner au spectre type Phillips (déplacement horizontal, crêtes pointues), Jacobien pour la mousse de crête, mousse en anneau autour de la coque, diffusion sous-surface sur les crêtes, reflets de Fresnel et scintillement.
 - Ciel : dégradé selon l'heure, soleil, lune, étoiles et aurore boréale procédurale.
 - Bateau : coque lofted, voile qui gonfle au vent, fanions, cheminée qui fume, canne à pêche avec flotteur, chat.
 - Monde : îles à l'horizon, phare clignotant, village illuminé, île volante avec cascade, nuages, lucioles.
-- Post-traitement : bloom léger pour les lumières.
+- Post-traitement : profondeur de champ, bloom, rayons crépusculaires, aberration chromatique légère, vignettage et grain.
 
 ## Structure
 
@@ -30,7 +32,8 @@ Raccourcis : `P` pluie, `L` lanternes, `S` son, `R` recentrer.
 index.html          page, import map et interface
 css/style.css       style de l'interface
 js/main.js          boucle, caméra, interactions, interface
-js/water.js         mer : shader + équivalent JS pour le flottement du bateau
+js/water.js         mer : houle spectrale (Gerstner), Jacobien, mousse, équivalent JS
+js/cinema.js        post-traitement : profondeur de champ, bloom, rayons, étalonnage
 js/environment.js   ciel, soleil, lune et palettes par heure
 js/boat.js          bateau et son animation
 js/world.js         îles, nuages, lucioles, lanternes, pluie
