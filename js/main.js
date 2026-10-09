@@ -45,6 +45,14 @@ const pipeline = createPipeline(renderer, scene, camera, {
 });
 const focusPoint = new THREE.Vector3(0, 1.5, 0);
 
+// The camera travels with the boat: its default framing is kept relative to the boat.
+const REL_POS = new THREE.Vector3().subVectors(DEFAULT_VIEW.pos, DEFAULT_VIEW.target);
+const destTarget = new THREE.Vector3();
+const destPos = new THREE.Vector3();
+const boatPrev = new THREE.Vector3();
+const boatDelta = new THREE.Vector3();
+const CAMERA_ISLAND_RANGE = 90; // islands whose centre is this close can touch the camera
+
 // ----- Shared glowing material (bright enough to bloom) -----
 const glowMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.0, 0.8, 0.45).multiplyScalar(2.4) });
 
@@ -97,6 +105,7 @@ const state = {
   lanterns: true,
   sound: false,
   sea: 0.8,
+  sailing: true,
   cinematic: false,
   time: 0,
 };
@@ -277,6 +286,14 @@ function setSea(v) {
 seaInput.addEventListener('input', () => setSea(parseFloat(seaInput.value)));
 setSea(state.sea);
 
+const btnSail = $('btn-sail');
+btnSail.addEventListener('click', () => {
+  state.sailing = !state.sailing;
+  boat.setSailing(state.sailing);
+  setToggle(btnSail, state.sailing);
+});
+setToggle(btnSail, state.sailing);
+
 btnCinema.addEventListener('click', () => {
   state.cinematic = !state.cinematic;
   document.body.classList.toggle('cinematic', state.cinematic);
@@ -293,6 +310,7 @@ window.addEventListener('keydown', (e) => {
     case 's': btnSound.click(); break;
     case 'r': btnReset.click(); break;
     case 'c': btnCinema.click(); break;
+    case 'v': btnSail.click(); break;
     default: break;
   }
 });
@@ -340,12 +358,24 @@ function renderFrame() {
   u.uFoamGain.value = 1.0 + palette.night * 0.2;
 
   water.syncUniforms(t);
-  u.uCamPos.value.copy(camera.position);
-  u.uBoatXZ.value.set(boat.group.position.x, boat.group.position.z);
-  u.uBoatYaw.value = boat.group.rotation.y;
 
-  boat.update(t, dt, water, palette);
-  world.update(t, dt, palette, water, pixelRatio);
+  // The boat sails. Remember where it was so the camera can travel with it.
+  boatPrev.copy(boat.group.position);
+  const obstacles = world.obstacles(boatPrev.x, boatPrev.z, 140);
+  boat.update(t, dt, water, palette, obstacles);
+  boatDelta.subVectors(boat.group.position, boatPrev);
+  camera.position.add(boatDelta);
+  controls.target.add(boatDelta);
+
+  const bx = boat.group.position.x;
+  const bz = boat.group.position.z;
+  water.followCenter(bx, bz);
+  u.uCamPos.value.copy(camera.position);
+  u.uBoatXZ.value.set(bx, bz);
+  u.uBoatYaw.value = boat.group.rotation.y;
+  env.sky.position.copy(camera.position);
+  focusPoint.set(bx, 1.5, bz);
+  world.update(t, dt, palette, water, pixelRatio, boat.group.position);
 
   // Lantern toggle: switch off the mast light and floating lanterns.
   const lanternsOn = state.lanterns ? 1 : 0;
@@ -367,12 +397,16 @@ function renderFrame() {
 
   updateHearts(dt);
 
+  // Where the default framing is right now, relative to the moving boat.
+  destTarget.set(bx + DEFAULT_VIEW.target.x, DEFAULT_VIEW.target.y, bz + DEFAULT_VIEW.target.z);
+  destPos.copy(destTarget).add(REL_POS);
+
   // Intro dolly, then the reset dolly, otherwise free orbit.
   if (intro) {
     intro.start ??= wallNow();
     const k = Math.min((wallNow() - intro.start) / intro.duration, 1);
-    camera.position.lerpVectors(INTRO_FROM, DEFAULT_VIEW.pos, easeOutCubic(k));
-    camera.lookAt(DEFAULT_VIEW.target);
+    camera.position.lerpVectors(INTRO_FROM, destPos, easeOutCubic(k));
+    camera.lookAt(destTarget);
     if (k >= 1) {
       intro = null;
       controls.enabled = true;
@@ -380,12 +414,25 @@ function renderFrame() {
   } else if (resetAnim) {
     resetAnim.t += dt / 1.2;
     const k = easeOutCubic(Math.min(resetAnim.t, 1));
-    camera.position.lerpVectors(resetAnim.from, DEFAULT_VIEW.pos, k);
-    controls.target.lerpVectors(resetAnim.fromTarget, DEFAULT_VIEW.target, k);
+    camera.position.lerpVectors(resetAnim.from, destPos, k);
+    controls.target.lerpVectors(resetAnim.fromTarget, destTarget, k);
     if (resetAnim.t >= 1) resetAnim = null;
   }
 
   controls.update();
+
+  // Keep the camera out of the islands: push it past the coast and above the rock.
+  for (const o of world.obstacles(camera.position.x, camera.position.z, CAMERA_ISLAND_RANGE)) {
+    const dx = camera.position.x - o.x;
+    const dz = camera.position.z - o.z;
+    const d = Math.hypot(dx, dz) || 1;
+    const min = o.r + 5;
+    if (d < min) {
+      camera.position.x = o.x + (dx / d) * min;
+      camera.position.z = o.z + (dz / d) * min;
+      camera.position.y = Math.max(camera.position.y, o.r * 0.35 + 3);
+    }
+  }
 
   if (!introHidden && introTimer && wallNow() > 1.2) {
     introTimer.classList.add('hide');

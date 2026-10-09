@@ -9,6 +9,8 @@ Une petite croisière au crépuscule : un bateau en bois sur une mer animée, en
 - **Caresser le chat** (cliquer dessus) : il saute, miaule et des cœurs apparaissent.
 - **Cliquer sur une lanterne flottante** pour la faire vibrer.
 - **Curseur d'heure** : du matin au cœur de la nuit, avec ciel, soleil/lune, lumière et brouillard qui suivent.
+- **Voguer** (touche V) : le bateau navigue réellement sur la mer, avec un cap qui serpente, un sillage et un évitement des îles. La caméra le suit.
+- **Îles générées** : l'archipel est créé à la volée autour du bateau, à partir d'une grille de cellules. Chaque cellule donne toujours la même île, et les îles trop lointaines sont libérées.
 - **Pluie** : gouttes, ronds dans l'eau et ciel plus gris.
 - **Lanternes** : allume ou éteint la lanterne du mât et les lanternes flottantes.
 - **Son** : ambiance de vagues et de vent, carillons et miaulement, le tout synthétisé avec WebAudio.
@@ -16,7 +18,7 @@ Une petite croisière au crépuscule : un bateau en bois sur une mer animée, en
 - **Cinéma** : bandes de letterbox, profondeur de champ, rayons de soleil et étalonnage plus marqués.
 - **Rotation automatique** et bouton **Recentrer**.
 
-Raccourcis : `P` pluie, `L` lanternes, `S` son, `R` recentrer, `C` cinéma.
+Raccourcis : `P` pluie, `L` lanternes, `S` son, `R` recentrer, `C` cinéma, `V` voguer.
 
 ## Ce qu'il y a dans la scène
 
@@ -32,6 +34,7 @@ Raccourcis : `P` pluie, `L` lanternes, `S` son, `R` recentrer, `C` cinéma.
 index.html          page, import map et interface
 css/style.css       style de l'interface
 js/main.js          boucle, caméra, interactions, interface
+js/archipelago.js   îles générées procéduralement autour du bateau
 js/water.js         mer : houle spectrale (Gerstner), Jacobien, mousse, équivalent JS
 js/cinema.js        post-traitement : profondeur de champ, bloom, rayons, étalonnage
 js/environment.js   ciel, soleil, lune et palettes par heure

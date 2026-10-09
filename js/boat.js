@@ -573,9 +573,59 @@ export function createBoat(scene, glowMat) {
     catV: 0,
     roll: 0,
     pitch: 0,
+    // Navigation: position on the sea, heading in radians (0 = +x), speed in units/s.
+    x: 0,
+    z: 0,
+    heading: 0.6,
+    speed: 0,
+    sailing: true,
+    wakeT: 0,
   };
 
-  function update(t, dt, water, palette) {
+  // Gentle meandering course, the way a boat loosely follows the wind.
+  const cruiseHeading = (t) => 0.6 + 0.35 * Math.sin(t * 0.045) + 0.2 * Math.sin(t * 0.017 + 1.7);
+  const CRUISE_SPEED = 1.5;
+  const TURN_RATE = 0.7;
+  const LOOK_AHEAD = 45;
+
+  // Steer around islands, turn towards the course, move forward, keep clear of the coast.
+  function navigate(t, dt, obstacles) {
+    const course = cruiseHeading(t);
+    let dx = Math.cos(course);
+    let dz = Math.sin(course);
+    let nearest = Infinity;
+    for (const o of obstacles) {
+      const ox = state.x - o.x;
+      const oz = state.z - o.z;
+      const d = Math.hypot(ox, oz) || 1;
+      const clearance = d - o.r;
+      nearest = Math.min(nearest, clearance);
+      if (clearance < LOOK_AHEAD) {
+        const push = Math.pow((LOOK_AHEAD - clearance) / LOOK_AHEAD, 2) * 4;
+        dx += (ox / d) * push;
+        dz += (oz / d) * push;
+      }
+      // Never let the hull sink into an island: push out if we somehow got too close.
+      if (clearance < 2) {
+        state.x = o.x + (ox / d) * (o.r + 2);
+        state.z = o.z + (oz / d) * (o.r + 2);
+      }
+    }
+    let diff = Math.atan2(dz, dx) - state.heading;
+    diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+    state.heading += THREE.MathUtils.clamp(diff, -TURN_RATE * dt, TURN_RATE * dt);
+
+    const target = state.sailing ? (nearest < 12 ? CRUISE_SPEED * 0.4 : CRUISE_SPEED) : 0;
+    state.speed += (target - state.speed) * (1 - Math.exp(-dt * 1.5));
+    state.x += Math.cos(state.heading) * state.speed * dt;
+    state.z += Math.sin(state.heading) * state.speed * dt;
+  }
+
+  function update(t, dt, water, palette, obstacles = []) {
+    navigate(t, dt, obstacles);
+    const hx = Math.cos(state.heading);
+    const hz = Math.sin(state.heading);
+
     updateSailGeo(mast.sailGeo, mainPoint, t);
     updateSailGeo(jibGeo, jibPoint, t);
     updatePennant(mast.pennant, t);
@@ -590,19 +640,26 @@ export function createBoat(scene, glowMat) {
     cat.group.position.y = catBase + state.catY;
 
     // Sit on the waves: average height plus slope-driven pitch and roll.
-    const center = water.sampleAt(0, 0, t);
-    const bowS = water.sampleAt(2.8, 0, t);
-    const sternS = water.sampleAt(-2.8, 0, t);
-    const sideS = water.sampleAt(0, 1.0, t);
+    const center = water.sampleAt(state.x, state.z, t);
+    const bowS = water.sampleAt(state.x + hx * 2.8, state.z + hz * 2.8, t);
+    const sternS = water.sampleAt(state.x - hx * 2.8, state.z - hz * 2.8, t);
+    const sideS = water.sampleAt(state.x - hz * 1.0, state.z + hx * 1.0, t);
     const targetRoll = -(sideS.h - center.h) * 0.9;
     const targetPitch = (bowS.h - sternS.h) * 0.5;
     const ease = 1 - Math.exp(-dt * 5);
     state.roll += (targetRoll - state.roll) * ease;
     state.pitch += (targetPitch - state.pitch) * ease;
 
-    boat.position.set(0, center.h - 0.12 + state.hopY * 0.5, 0);
-    boat.rotation.set(state.roll, Math.sin(t * 0.13) * 0.05, state.pitch);
+    boat.position.set(state.x, center.h - 0.12 + state.hopY * 0.5, state.z);
+    boat.rotation.set(state.roll, -state.heading, state.pitch);
     boat.updateMatrixWorld(true);
+
+    // Wake: a soft ripple behind the stern at intervals, so the trail reads as ripples and not a dark band.
+    state.wakeT += dt;
+    if (state.speed > 0.3 && state.wakeT > 0.45) {
+      state.wakeT = 0;
+      water.addRipple(state.x - hx * 3.0, state.z - hz * 3.0, t, 0.14);
+    }
 
     const night = palette.night;
     mast.lanternLight.intensity = 0.8 + night * 9;
@@ -630,6 +687,10 @@ export function createBoat(scene, glowMat) {
     }
   }
 
+  function setSailing(on) {
+    state.sailing = on;
+  }
+
   function hopBoat() {
     state.hopV += 2.4;
   }
@@ -637,5 +698,5 @@ export function createBoat(scene, glowMat) {
     state.catV += 3.2;
   }
 
-  return { group: boat, cat, update, hopBoat, hopCat, mast, bobber: bobberWorld, smoke, state };
+  return { group: boat, cat, update, hopBoat, hopCat, setSailing, mast, bobber: bobberWorld, smoke, state };
 }

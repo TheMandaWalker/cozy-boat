@@ -16,7 +16,7 @@ import { seeded } from './util.js';
 // ---------------------------------------------------------------------------
 
 export const NW = 36;
-export const RIPPLE_COUNT = 12;
+export const RIPPLE_COUNT = 24;
 export const RIPPLE_LIFE = 8.0;
 const RIPPLE_SPEED = 3.0;
 const RIPPLE_FREQ = 5.0;
@@ -113,8 +113,8 @@ varying float vHeight;
 varying float vChop;
 
 void main() {
-  vec3 rest = position;
-  vec2 x0 = rest.xz;
+  // Wave phases use world coordinates, so the mesh can follow the boat.
+  vec2 x0 = (modelMatrix * vec4(position, 1.0)).xz;
   float t = uTime;
 
   vec3 disp = vec3(0.0);
@@ -173,8 +173,8 @@ void main() {
   disp.y += rh;
 
   vec3 p = vec3(x0.x + disp.x, disp.y, x0.y + disp.z);
-  vec4 world = modelMatrix * vec4(p, 1.0);
-  vWorld = world.xyz;
+  vec4 world = vec4(p, 1.0);
+  vWorld = p;
   vNormal = normalize(cross(Tz, Tx));
   vJacobian = J11 * J22 - J12 * J12;
   vHeight = disp.y;
@@ -208,8 +208,12 @@ varying float vJacobian;
 varying float vHeight;
 varying float vChop;
 
+// Hash without sin(): sin(large argument) loses precision on the GPU once the
+// boat has sailed far from the origin, which showed up as dark streaks.
 float h21(vec2 p) {
-  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+  vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+  p3 += dot(p3, p3.yzx + 33.33);
+  return fract((p3.x + p3.y) * p3.z);
 }
 
 float vnoise(vec2 p) {
@@ -299,8 +303,8 @@ void main() {
 
   // Contact foam around the boat hull: a capsule distance field, as a stand-in for the depth-buffer intersection foam.
   vec2 rel = w - uBoatXZ;
-  float cs = cos(-uBoatYaw);
-  float sn = sin(-uBoatYaw);
+  float cs = cos(uBoatYaw);
+  float sn = sin(uBoatYaw);
   vec2 local = vec2(cs * rel.x - sn * rel.y, sn * rel.x + cs * rel.y);
   float hx = clamp(local.x, -2.9, 2.9);
   float hull = length(local - vec2(hx, 0.0)) - 1.05;
@@ -400,6 +404,13 @@ export function createWater() {
     return { h: d.dy + rippleAt(x0, z0, t, ripples) };
   }
 
+  // Keep the mesh centred on the boat. The grid is snapped to whole cells so the
+  // vertices stay on the same world lattice and the waves do not swim.
+  const cell = 700 / 480;
+  function followCenter(x, z) {
+    mesh.position.set(Math.round(x / cell) * cell, 0, Math.round(z / cell) * cell);
+  }
+
   return {
     mesh,
     uniforms,
@@ -408,5 +419,6 @@ export function createWater() {
     syncUniforms,
     setSeaState,
     sampleAt,
+    followCenter,
   };
 }
